@@ -1,0 +1,189 @@
+p e 8 2
+p ew 9 2
+p ew 10 2
+p ew 11 2
+p ew 12 2
+coin 12 3
+p ew 13 2
+p nw 14 2
+p ns 14 3
+p se 14 4
+p ew 15 4
+p ew 16 4
+p ew 17 4
+p ew 18 4
+p w 19 4
+coin 19 5
+coin 8 8
+p s 8 10
+p ns 8 11
+p ns 8 12
+p ns 8 13
+p n 8 14
+xcoin 8 16
+p w 2 13
+p ew 1 13
+p e 0 13
+xcoin 1 12
+coin 1 14
+p dot 24 3
+p dot 28 3
+coin 29 4
+p dot 32 3
+p e 26 7
+p ew 27 7
+coin 27 8
+p ew 28 7
+p nw 29 7
+p ns 29 8
+p ns 29 9
+p se 29 10
+p ew 30 10
+p ew 31 10
+p w 32 10
+p jump 31 11
+p gravity 40 0
+p ns 45 0
+p ns 45 1
+p ns 45 2
+p se 45 3
+p ew 46 3
+p ew 47 3
+p ew 48 3
+p ew 49 3
+p ew 50 3
+p ew 51 3
+p ew 52 3
+p sw 53 3
+p ns 53 2
+p ns 53 1
+p ns 53 0
+xcoin 49 1
+coin 49 4
+p force 51 0 0 6
+p e 40 20
+p ew 41 20
+coin 42 21
+coin 42 18
+p ew 42 20
+p ew 43 20
+p w 44 20
+p e 45 29
+p ew 46 29
+xcoin 46 31
+p w 47 29
+p w -18 4
+p ew -19 4
+p ew -20 4
+p ew -21 4
+p e -22 4
+p jump -21 5
+p w -21.9 20
+p ew -22.5 20
+p e -24.5 20
+p forceright -25 21 -40 32
+p new -24 20
+p ns -24 21
+p ns -24 21
+p n -24 22
+xcoin -22.5 21.5
+p dot -65 53
+p e -75 55
+p w -72 55
+p ew -73 55
+p ew -74 55
+p ew -80 53
+p sw -79 53
+p ns -79 52
+p ns -79 51
+p ns -79 50
+p nw -79 49
+p ew -80 49
+p ew -81 49
+p ew -82 49
+p ew -81 53
+p e -82 53
+p e -82.5 49
+p dot -81 44
+redcoin -81.45 45.5
+xcoin -81 51
+coin -80.5 54
+coin -73.5 56
+coin -65 54.5
+p dot -85 2
+p dot -91 7
+p dot -97 12
+p dot -103 17
+p dot -109 22
+redcoin -109.5 23.5
+xcoin -103 18.5
+coin -85 3.5
+coin -91 8.5
+coin -97 13.5
+p dot 55 28
+p dot 60 29
+nis carter 55 0
+nis melontusk -30 7
+nis carter2evil 200 0
+p e 200 5
+p ew 201 5
+p w 202 5
+p dot 204 10
+p dot 208 12
+coin 208 13
+xcoin 14 2
+coin 55 28.5
+p w 60.5 29
+p e 67 25
+p w 68 25
+p e 70 32
+p ew 71 32
+p ew 72 32
+p ew 73 32
+p ew 74 32
+p w 75 32
+p e 79 28
+p w 80 28
+p force 71 33 19 7
+p e 90 40
+p w 91 40
+p ne 95 46
+p ew 96 46
+p ew 97 46
+p ew 98 46
+p ew 99 46
+p nw 100 46
+p ns 100 47
+p ns 95 47
+p ns 100 48
+p ns 95 48
+p ns 95 49
+p se 95 50
+p ew 96 50 
+p ns 100 49
+p ns 100 50 
+p n 100 51
+p nw 96.8 50
+p n 96.8 51
+p e 101 42
+p w 102 42
+xcoin 97 48
+coin 101.5 42.5
+coin 73 33
+p ew 89 52
+p w 90 52
+p e 88 52
+p dot 82 54
+redcoin 81.5 55.5
+p gravity 128 0 
+p ew 128 40
+p e 127 40
+p ew 129 40
+p ew 130 40
+p ew 131 40 
+p nw 132 40 
+p se 132 41
+p ew 133 41
+p ew 134 41
+p w 135 41
+xcoin 133.5 40
