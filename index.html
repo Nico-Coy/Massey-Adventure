@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Massey Adventure</title>
+        <meta charset="utf-8">
+        <style>
+
+* {
+    box-sizing: border-box;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+html, body, canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    margin: 0;
+}
+
+canvas, img {
+    image-rendering: pixelated;
+}
+
+#debug {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    z-index: 10;
+    white-space: pre-wrap;
+}
+
+#coincounter {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+#coincounter div {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1em;
+}
+
+#coincounter img {
+    height: 1em;
+    width: 1em;
+}
+
+        </style>
+    </head>
+    <body>
+        <div id="debug"></div>
+        <div id="coincounter">
+            <div>
+                <img src="coin.png">
+                <span id="coins"></span>
+            </div>
+            <div>
+                <img src="coin/0.png">
+                <span id="xcoins"></span>
+            </div>
+            <div>
+                <img src="redcoin/0.png">
+                <span id="redcoins"></span>
+            </div>
+        </div>
+        <canvas></canvas>
+        <script>
+
+'use strict';
+
+
+let canvas = document.querySelector('canvas');
+let height = window.innerHeight;
+let width = window.innerWidth;
+canvas.height = height;
+canvas.width = width;
+let ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+ctx.fillStyle = 'white';
+ctx.fillRect(0, 0, width, height);
+
+function loadImage(src, height, width) {
+    let out = new Image();
+    out.src = src;
+    out.height = height;
+    out.width = width;
+    return new Promise(resolve => {
+        out.addEventListener('load', () => resolve(out));
+    });
+}
+
+let scale = 4;
+
+window.addEventListener('resize', () => {
+    height = window.innerHeight;
+    width = window.innerWidth;
+    canvas.height = height;
+    canvas.width = width;
+});
+
+
+let gravity = 20;
+let platforms = [];
+let xcoins = [];
+let coins = [];
+let redcoins = [];
+let nis = [];
+let obtainedCoins = new Set();
+let obtainedXcoins = new Set();
+let obtainedRedcoins = new Set();
+
+fetch('world.txt').then(resp => resp.text()).then(data => {
+    for (let line of data.split('\n')) {
+        let [type, ...args] = line.split(' ');
+        if (type === 'p') {
+            platforms.push({
+                x: parseFloat(args[1]) * 16,
+                y: parseFloat(args[2]) * 16,
+                height: 16,
+                width: 16,
+                img: args[0],
+            });
+            if (args[0].startsWith('force')) {
+                platforms[platforms.length - 1].tpX = parseFloat(args[3]) * 16;
+                platforms[platforms.length - 1].tpY = parseFloat(args[4]) * 16;
+            }
+        } else if (type === 'coin') {
+            coins.push({
+                x: parseFloat(args[0]) * 16 + 4,
+                y: parseFloat(args[1]) * 16 - 4,
+                height: 7,
+                width: 7,
+            });
+        } else if (type === 'xcoin') {
+            xcoins.push({
+                x: parseFloat(args[0]) * 16,
+                y: parseFloat(args[1]) * 16 - 12,
+                height: 15,
+                width: 15,
+            });
+        } else if (type === 'redcoin') {
+            redcoins.push({
+                x: parseFloat(args[0]) * 16,
+                y: parseFloat(args[1]) * 16,
+                height: 31,
+                width: 31,
+            });
+        } else if (type === 'nis') {
+            nis.push({
+                x: parseFloat(args[1]) * 16,
+                y: parseFloat(args[2]) * 16,
+                height: NIS_IMAGE_NAMES.filter(x => x[0] === args[0])[0][2],
+                width: NIS_IMAGE_NAMES.filter(x => x[0] === args[0])[0][1],
+                img: args[0],
+            });
+        }
+    }
+});
+
+
+let player = {
+    x: 0,
+    y: 0,
+    width: 32,
+    height: 48,
+    yVelocity: 0,
+    speedA: 5,
+    speedB: 4,
+    jumpPower: 6,
+};
+
+function collision(a, b) {
+    return {
+        x: Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x),
+        y: Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y),
+    };
+}
+
+function isTouchingPlatform() {
+    for (let platform of platforms) {
+        let {x, y} = collision(player, platform);
+        if (x >= 0 && y >= 0 && (x > 0 || y > 0)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+const LISTENED_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'a', 'd'];
+let pressedKeys = {};
+
+window.addEventListener('keydown', event => {
+    if (LISTENED_KEYS.includes(event.key)) {
+        pressedKeys[event.key] = true;
+    }
+    if (event.key === 'o') {
+        alert('Mr. Massey says: SIIIX SEVEEENNNN!!!');
+    }
+});
+
+window.addEventListener('keyup', event => {
+    if (LISTENED_KEYS.includes(event.key)) {
+        pressedKeys[event.key] = false;
+    }
+});
+
+let tps = 60;
+let movingLeft = 0;
+let movingRight = 0;
+let jumpCooldown = 0;
+let gravityCooldown = 0;
+
+if (localStorage.player) {
+    player = JSON.parse(localStorage.player);
+}
+if (localStorage.obtainedCoins) {
+    obtainedCoins = new Set(JSON.parse(localStorage.obtainedCoins));
+    obtainedXcoins = new Set(JSON.parse(localStorage.obtainedXcoins));
+    obtainedRedcoins = new Set(JSON.parse(localStorage.obtainedRedcoins));
+}
+
+setInterval(() => {
+    if (pressedKeys['ArrowLeft']) {
+        movingLeft = player.speedA;
+    }
+    if (pressedKeys['ArrowRight']) {
+        movingRight = player.speedA;
+    }
+    if (pressedKeys['ArrowUp'] && jumpCooldown === 0) {
+        if (player.y === 0) {
+            jumpCooldown = 20;
+            if (gravity < 0) {
+                player.yVelocity -= player.jumpPower;
+            } else {
+                player.yVelocity += player.jumpPower;
+            }
+        } else {
+            for (let platform of platforms) {
+                let {x, y} = collision(player, platform);
+                if (x >= 0 && y >= 0 && player.y >= platform.y) {
+                    if (gravity < 0) {
+                        player.yVelocity -= player.jumpPower;
+                    } else {
+                        player.yVelocity += player.jumpPower;
+                    }
+                    jumpCooldown = 20;
+                    break;
+                }
+            }
+        }
+    }
+    if (jumpCooldown > 0) {
+        jumpCooldown--;
+    }
+    if (movingLeft > 0) {
+        player.x -= player.speedB;
+        movingLeft--;
+    }
+    if (movingRight > 0) {
+        player.x += player.speedB;
+        movingRight--;
+    }
+    if (pressedKeys['a']) {
+        player.x--;
+    } else if (pressedKeys['d']) {
+        player.x++;
+    }
+    if (player.yVelocity !== 0) {
+        player.y += player.yVelocity;
+        if (player.y <= 0) {
+            player.y = 0;
+            player.yVelocity = 0;
+        }
+    }
+    if (!isTouchingPlatform() || (gravity < 0 && player.y === 0) && !(gravity > 0 && player.y === 0)) {
+        player.yVelocity -= gravity / tps;
+    }
+    for (let platform of platforms) {
+        let {x, y} = collision(player, platform);
+        if (x > 0 && y > 0) {
+            if (platform.img.startsWith('jump')) {
+                player.yVelocity += gravity > 0 ? 6.5 : -6.5;
+            } else if (platform.img.startsWith('gravity')) {
+                if (gravityCooldown === 0) {
+                    gravity = -gravity;
+                    gravityCooldown = 20;
+                    if (gravity < 0) {
+                        player.yVelocity = 1;
+                    }
+                }
+            } else if (platform.img.startsWith('force')) {
+                player.x += platform.tpX;
+                player.y += platform.tpY;
+            } else {
+                if (x < y) {
+                    if (player.x < platform.x) {
+                        player.x -= x;
+                    } else {
+                        player.x += x;
+                    }
+                } else {
+                    if (player.y < platform.y) {
+                        player.y -= y;
+                        player.yVelocity = 0;
+                    } else {
+                        player.y += y;
+                        player.yVelocity = 0;
+                    }
+                }
+            }
+        }
+    }
+    for (let i = 0; i < coins.length; i++) {
+        if (!obtainedCoins.has(i)) {
+            let {x, y} = collision(player, coins[i]);
+            if (x > 0 && y > 0) {
+                obtainedCoins.add(i);
+            }
+        }
+    }
+    for (let i = 0; i < xcoins.length; i++) {
+        if (!obtainedXcoins.has(i)) {
+            let {x, y} = collision(player, xcoins[i]);
+            if (x > 0 && y > 0) {
+                obtainedXcoins.add(i);
+            }
+        }
+    }
+        for (let i = 0; i < redcoins.length; i++) {
+        if (!obtainedRedcoins.has(i)) {
+            let {x, y} = collision(player, redcoins[i]);
+            if (x > 0 && y > 0) {
+                obtainedRedcoins.add(i);
+            }
+        }
+    }
+    if (gravityCooldown > 0) {
+        gravityCooldown--;
+    }
+    if (player.y < 0) {
+        player.y = 0;
+        player.yVelocity = 0;
+    }
+    if (player.y > 1000) {
+        player.y = 0;
+        player.yVelocity = 0;
+        if (gravity < 0) {
+            gravity = -gravity;
+        }
+    }
+    localStorage.player = JSON.stringify(player);
+    localStorage.obtainedCoins = JSON.stringify(Array.from(obtainedCoins));
+    localStorage.obtainedXcoins = JSON.stringify(Array.from(obtainedXcoins));
+    localStorage.obtainedRedcoins = JSON.stringify(Array.from(obtainedRedcoins));
+    document.getElementById('debug').textContent = `X = ${player.x.toFixed(0)}, Y = ${player.y.toFixed(0)}`;
+    document.getElementById('coins').textContent = obtainedCoins.size + '/' + coins.length;
+    document.getElementById('xcoins').textContent = obtainedXcoins.size + '/' + xcoins.length;
+    document.getElementById('redcoins').textContent = obtainedRedcoins.size + '/' + redcoins.length;
+}, 1000 / tps);
+
+
+const PLAYER_ANIMATION_NAMES = ['idle', 'walkingleft1', 'walkingleft2', 'walkingright1', 'walkingright2', 'idlejump', 'walkingleft1jump', 'walkingleft2jump', 'walkingright1jump', 'walkingright2jump'];
+let playerAnimations = {};
+let playerState = 'idle';
+let walkAnimationChangeTime = 0;
+
+const PLATFORM_TYPES = ['dot', 'n', 's', 'e', 'w', 'ns', 'ew', 'ne', 'nw', 'se', 'sw', 'nse', 'nsw', 'new', 'sew', 'nsew', 'jump', 'jumpflip', 'jumpleft', 'jumpright', 'gravity', 'gravityflip', 'gravityleft', 'gravityright', 'force', 'forceflip', 'forceleft', 'forceright'];
+let platformImages = {};
+
+const NIS_IMAGE_NAMES = [
+    ['carter', 32, 48],
+    ['melontusk', 64, 96],
+    ['carter2', 433, 577],
+    ['carter2evil', 433, 577],
+];
+let nisImages = {};
+
+let bgWidth = 5760;
+let bgHeight = 96;
+let bgImage;
+let bgScrolling = 10;
+
+let currentCoin = 0;
+let currentCoinChangeTime = 12;
+let coinAnimations = [];
+let coinImage;
+let currentRedCoin = 0;
+let redCoinAnimations = [];
+
+function animate() {
+    ctx.fillStyle = '#87ceeb';
+    ctx.fillRect(0, 0, width, height);
+    if (movingLeft || movingRight) {
+        if (movingLeft && movingRight) {
+            playerState = 'idle';
+            walkAnimationChangeTime = 0;
+        } else if (movingLeft) {
+            if (walkAnimationChangeTime === 0) {
+                if (playerState !== 'walkingleft1') {
+                    playerState = 'walkingleft1';
+                    walkAnimationChangeTime = 2;
+                } else {
+                    playerState = 'walkingleft2';
+                    walkAnimationChangeTime = 2;
+                }
+            } else {
+                walkAnimationChangeTime--;
+            }
+        } else {
+            if (walkAnimationChangeTime === 0) {
+                if (playerState !== 'walkingright1') {
+                    playerState = 'walkingright1';
+                    walkAnimationChangeTime = 2;
+                } else {
+                    playerState = 'walkingright2';
+                    walkAnimationChangeTime = 2;
+                }
+            } else {
+                walkAnimationChangeTime--;
+            }
+        }
+    } else {
+        playerState = 'idle';
+        walkAnimationChangeTime = 0;
+    }
+    let offset = 0;
+    if (player.y < height / scale / 2) {
+        offset = (height / scale / 2 - player.y) * scale;
+    }
+    let xOffset = player.x * scale - width / 2 + player.width / 2 * scale;
+    let yOffset = offset === 0 ? player.y * scale - height / 2 : 0;
+    ctx.drawImage(bgImage, -xOffset / bgScrolling - bgWidth/2, height - bgHeight * scale + yOffset / bgScrolling, bgWidth * scale, bgHeight * scale);
+    for (let x of nis) {
+        ctx.drawImage(nisImages[x.img], x.x * scale - xOffset, height - x.y * scale - x.height * scale + yOffset, x.width * scale, x.height * scale);
+    }
+    for (let platform of platforms) {
+        ctx.drawImage(platformImages[platform.img], platform.x * scale - xOffset - 4 * scale, height - platform.y * scale - 24 * scale + yOffset + 4 * scale, 24 * scale, 24 * scale);
+    }
+    for (let coin of coins) {
+        ctx.drawImage(coinImage, coin.x * scale - xOffset, height - coin.y * scale - 24 * scale + yOffset, coin.width * scale, coin.height * scale);
+    }
+    for (let coin of xcoins) {
+        ctx.drawImage(coinAnimations[currentCoin], coin.x * scale - xOffset, height - coin.y * scale - 24 * scale + yOffset, coin.width * scale, coin.height * scale);
+    }
+    for (let coin of redcoins) {
+        ctx.drawImage(redCoinAnimations[currentRedCoin], coin.x * scale - xOffset, height - coin.y * scale - 24 * scale + yOffset, coin.width * scale, coin.height * scale);
+    }
+    currentCoinChangeTime--;
+    if (currentCoinChangeTime === 0) {
+        currentCoinChangeTime = 12;
+        currentCoin++;
+        currentRedCoin++;
+        if (currentCoin === 4) {
+            currentCoin = 0;
+        }
+        if (currentRedCoin === 6) {
+            currentRedCoin = 0;
+        }
+    }
+    ctx.drawImage(playerAnimations[playerState + (pressedKeys['ArrowUp'] ? 'jump' : '')], (width - player.width * scale) / 2, height / 2 - player.height * scale + offset, player.width * scale, player.height * scale);
+    requestAnimationFrame(animate);
+}
+
+window.addEventListener('load', async () => {
+    for (let a of PLAYER_ANIMATION_NAMES) {
+        playerAnimations[a] = await loadImage('massey/' + a + '.png', player.height, player.width);
+    }
+    for (let type of PLATFORM_TYPES) {
+        platformImages[type] = await loadImage('platforms/' + type + '.png', 12, 12);
+    }
+    for (let i = 0; i < 4; i++) {
+        coinAnimations[i] = await loadImage('coin/' + i + '.png', 15, 15);
+    }
+    for (let i = 0; i < 6; i++) {
+        redCoinAnimations[i] = await loadImage('redcoin/' + i + '.png', 15, 15);
+    }
+    for (let x of NIS_IMAGE_NAMES) {
+        nisImages[x[0]] = await loadImage('nis/' + x[0] + '.png', x[1], x[2]);
+    }
+    coinImage = await loadImage('coin.png', 7, 7);
+    bgImage = await loadImage('bg.png', bgHeight, bgWidth);
+    requestAnimationFrame(animate);
+});
+
+        </script>
+    </body>
+</html>
