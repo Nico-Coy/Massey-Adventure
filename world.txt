@@ -132,7 +132,7 @@ p dot 204 10
 p dot 208 12
 coin 208 13
 xcoin 14 2
-coin 55 28.5
+coin 55 29.5
 p w 60.5 29
 p e 67 25
 p w 68 25
@@ -168,7 +168,7 @@ p n 96.8 51
 p e 101 42
 p w 102 42
 xcoin 97 48
-coin 101.5 42.5
+coin 101.5 43.5
 coin 73 33
 p ew 89 52
 p w 90 52
